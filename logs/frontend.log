@@ -1,0 +1,54 @@
+Starting project at /home/melker/code/food/frontend
+Metro is running in CI mode, reloads are disabled. Remove CI=true to enable watch mode.
+Starting Metro Bundler
+warning: Bundler cache is empty, rebuilding (this may take a minute)
+The following packages should be updated for best compatibility with the installed expo version:
+  @react-native-async-storage/async-storage@2.2.0 - expected version: 2.1.2
+  react-native-gesture-handler@2.28.0 - expected version: ~2.24.0
+  react-native-safe-area-context@5.6.0 - expected version: 5.4.0
+  react-native-screens@4.14.1 - expected version: ~4.11.1
+Your project may not work correctly until you install the expected versions of the packages.
+Waiting on http://localhost:5173
+Logs for your project will appear below.
+Web ./index.ts ▓▓▓▓▓▓▓░░░░░░░░░ 44.4% (211/333)
+Web ./index.ts ░░░░░░░░░░░░░░░░  0.0% (0/1)
+Web ./index.ts ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░ 99.7% (623/624)
+Web ./index.ts ░░░░░░░░░░░░░░░░  0.0% (0/1)
+Web Bundled 8243ms index.ts (626 modules)
+Web Bundled 8254ms index.ts (1 module)
+Web ./index.ts ░░░░░░░░░░░░░░░░  0.0% (0/1)
+Web Bundled 39ms index.ts (1 module)
+Web ./index.ts ░░░░░░░░░░░░░░░░  0.0% (0/1)
+Web Bundled 27ms index.ts (1 module)
+/home/melker/code/food/frontend/node_modules/@expo/cli/build/src/utils/errors.js:130
+    throw error;
+    ^
+
+Error: Cannot find module './utils/env'
+Require stack:
+- /home/melker/code/food/frontend/node_modules/@expo/cli/build/src/log.js
+- /home/melker/code/food/frontend/node_modules/@expo/cli/build/src/utils/args.js
+- /home/melker/code/food/frontend/node_modules/@expo/cli/build/src/start/index.js
+- /home/melker/code/food/frontend/node_modules/@expo/cli/build/bin/cli
+- /home/melker/code/food/frontend/node_modules/expo/bin/cli
+    at Module._resolveFilename (node:internal/modules/cjs/loader:1410:15)
+    at defaultResolveImpl (node:internal/modules/cjs/loader:1051:19)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1056:22)
+    at Module._load (node:internal/modules/cjs/loader:1219:37)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:238:24)
+    at Module.require (node:internal/modules/cjs/loader:1493:12)
+    at require (node:internal/modules/helpers:152:16)
+    at Object.exception (/home/melker/code/food/frontend/node_modules/@expo/cli/build/src/log.js:65:21)
+    at internalMiddleware (/home/melker/code/food/frontend/node_modules/@expo/cli/build/src/start/server/middleware/ExpoMiddleware.js:92:22) {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    '/home/melker/code/food/frontend/node_modules/@expo/cli/build/src/log.js',
+    '/home/melker/code/food/frontend/node_modules/@expo/cli/build/src/utils/args.js',
+    '/home/melker/code/food/frontend/node_modules/@expo/cli/build/src/start/index.js',
+    '/home/melker/code/food/frontend/node_modules/@expo/cli/build/bin/cli',
+    '/home/melker/code/food/frontend/node_modules/expo/bin/cli'
+  ]
+}
+
+Node.js v24.5.0
