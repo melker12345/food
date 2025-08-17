@@ -1,94 +1,96 @@
 package main
 
 import (
-	"context"
+	"food-app/database"
+	"food-app/handlers"
+	"food-app/middleware"
 	"log"
-	"net/http"
-	"os"
-	"time"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-var mongoClient *mongo.Client
-var database *mongo.Database
-
 func main() {
-	// Load environment variables
-	port := getEnv("PORT", "4000")
-	mongoURI := getEnv("MONGODB_URI", "mongodb://localhost:27017/food")
-	corsOrigin := getEnv("CORS_ORIGIN", "*")
+	// Initialize database
+	database.Connect()
+	database.Migrate()
+	database.SeedData()
 
-	// Connect to MongoDB
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	client, err := mongo.Connect(ctx, options.Client().ApplyURI(mongoURI))
-	if err != nil {
-		log.Fatal("Failed to connect to MongoDB:", err)
-	}
-
-	// Ping to verify connection
-	if err = client.Ping(ctx, nil); err != nil {
-		log.Fatal("Failed to ping MongoDB:", err)
-	}
-
-	mongoClient = client
-	database = client.Database("food")
-	log.Println("Connected to MongoDB")
-
-	// Setup Gin router
+	// Create Gin router
 	r := gin.Default()
 
-	// CORS middleware
+	// CORS configuration
 	config := cors.DefaultConfig()
-	if corsOrigin == "*" {
-		config.AllowAllOrigins = true
-	} else {
-		config.AllowOrigins = []string{corsOrigin}
+	config.AllowOrigins = []string{
+		"http://localhost:3000",
+		"http://localhost:3001",
+		"http://localhost:5173",
+		"http://localhost:5174",
+		"http://127.0.0.1:3000",
+		"http://127.0.0.1:3001",
+		"http://127.0.0.1:5173",
+		"http://127.0.0.1:5174",
 	}
-	config.AllowMethods = []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"}
-	config.AllowHeaders = []string{"Origin", "Content-Length", "Content-Type", "Authorization"}
+	config.AllowMethods = []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"}
+	config.AllowHeaders = []string{"Origin", "Content-Type", "Accept", "Authorization"}
+	config.AllowCredentials = true
 	r.Use(cors.New(config))
 
-	// Routes
-	api := r.Group("/api")
+	// Health check endpoint
+	r.GET("/health", func(c *gin.Context) {
+		c.JSON(200, gin.H{"status": "ok", "message": "Food Planning API is running"})
+	})
+
+	// API routes
+	api := r.Group("/api/v1")
+
+	// Public routes
+	public := api.Group("/")
 	{
-		// Health check
-		api.GET("/health", func(c *gin.Context) {
-			c.JSON(http.StatusOK, gin.H{"status": "ok"})
-		})
+		// Authentication
+		public.POST("/register", handlers.Register)
+		public.POST("/login", handlers.Login)
 
-		// User routes
-		api.POST("/users/upsert", upsertUser)
-		api.GET("/users/me", getMe)
-
-		// Meal routes
-		api.POST("/meals", createMeal)
-		api.GET("/meals/random", getRandomMeal)
-		api.POST("/meals/like", likeMeal)
-
-		// Plan routes
-		api.POST("/plans/generate", generateWeeklyPlan)
-		api.GET("/plans/weekly", getWeeklyPlan)
-
-		// Shopping routes
-		api.GET("/shopping/list", getShoppingList)
+		// Public meal browsing
+		public.GET("/meals", handlers.GetMeals)
+		public.GET("/meals/:id", handlers.GetMeal)
+		public.GET("/meals/trending", handlers.GetTrendingMeals)
+		public.GET("/meals/:id/reviews", handlers.GetMealReviews)
 	}
 
-	// Seed database on startup
-	seedDatabase()
+	// Protected routes
+	protected := api.Group("/")
+	protected.Use(middleware.AuthMiddleware())
+	{
+		// User profile
+		protected.GET("/profile", handlers.GetProfile)
+		protected.PUT("/profile", handlers.UpdateProfile)
+		protected.PUT("/profile/preferences", handlers.UpdatePreferences)
 
-	log.Printf("API listening on http://localhost:%s", port)
-	r.Run(":" + port)
-}
+		// Personalized meals
+		protected.GET("/meals/personalized", handlers.GetPersonalizedMeals)
+		protected.GET("/meals/liked", handlers.GetLikedMeals)
+		protected.POST("/meals/:id/like", handlers.LikeMeal)
+		protected.POST("/meals/:id/dislike", handlers.DislikeMeal)
+		protected.POST("/meals/:id/reviews", handlers.AddMealReview)
 
-func getEnv(key, defaultValue string) string {
-	if value := os.Getenv(key); value != "" {
-		return value
+		// Meal planning
+		protected.POST("/meal-plans", handlers.CreateMealPlan)
+		protected.GET("/meal-plans", handlers.GetMealPlans)
+		protected.GET("/meal-plans/:id", handlers.GetMealPlan)
+		protected.PUT("/meal-plans/:id", handlers.UpdateMealPlan)
+		protected.DELETE("/meal-plans/:id", handlers.DeleteMealPlan)
+
+		// Shopping lists
+		protected.POST("/meal-plans/:id/shopping-list", handlers.GenerateShoppingList)
+		protected.GET("/shopping-lists", handlers.GetShoppingLists)
+		protected.PUT("/shopping-list-items/:item_id", handlers.UpdateShoppingListItem)
 	}
-	return defaultValue
+
+	// Start server
+	port := "8080"
+	log.Printf("Server starting on port %s", port)
+	if err := r.Run(":" + port); err != nil {
+		log.Fatal("Failed to start server:", err)
+	}
 }

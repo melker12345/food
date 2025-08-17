@@ -1,32 +1,54 @@
-#!/usr/bin/env bash
-set -euo pipefail
+#!/bin/bash
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-LOG_DIR="$ROOT_DIR/logs"
-PID_DIR="$ROOT_DIR/.pids"
-mkdir -p "$LOG_DIR" "$PID_DIR"
+# Create logs and pids directories if they don't exist
+mkdir -p logs .pids
 
-echo "[dev-up] Checking Docker daemon..."
-if ! docker info >/dev/null 2>&1; then
-	echo "[dev-up] Docker daemon is not running. Start Docker and re-run."
-	exit 1
+# Stop any existing processes first
+./scripts/dev-down.sh 2>/dev/null
+
+echo "Starting Food Planning App development environment..."
+
+# Check if Docker Compose is available for PostgreSQL
+if command -v docker-compose &> /dev/null; then
+    echo "Starting PostgreSQL database with Docker..."
+    docker-compose up -d database
+    # Wait for database to be ready
+    echo "Waiting for database to be ready..."
+    sleep 10
+    export DB_TYPE=postgres
+else
+    echo "Docker Compose not found. Using SQLite database for development..."
+    export DB_TYPE=sqlite
+    export DB_PATH="./backend/food_app.db"
 fi
 
-echo "[dev-up] Starting MongoDB (docker compose up -d)..."
-docker compose -f "$ROOT_DIR/docker-compose.yml" up -d
+# Start backend
+echo "Starting Go backend..."
+cd backend
+go mod tidy
+go run . > ../logs/backend.log 2>&1 &
+echo $! > ../.pids/backend.pid
+cd ..
 
-echo "[dev-up] Building Go backend..."
-( cd "$ROOT_DIR/backend" && go build -o food-api . )
+# Wait for backend to start
+echo "Waiting for backend to start..."
+sleep 5
 
-echo "[dev-up] Starting backend API..."
-( cd "$ROOT_DIR/backend" && nohup ./food-api >"$LOG_DIR/backend.log" 2>&1 & echo $! > "$PID_DIR/backend.pid" )
+# Start frontend
+echo "Starting React frontend..."
+cd frontend
+npm install
+npm run dev > ../logs/frontend.log 2>&1 &
+echo $! > ../.pids/frontend.pid
+cd ..
 
-echo "[dev-up] Starting React frontend..."
-( cd "$ROOT_DIR/frontend" && nohup npm start >"$LOG_DIR/frontend.log" 2>&1 & echo $! > "$PID_DIR/frontend.pid" )
-
-echo "[dev-up] Done."
-echo "API:   http://localhost:4000"
-echo "Web:   http://localhost:3000"
-echo "Logs:  $LOG_DIR"
-
-
+echo "Development environment started!"
+echo "Frontend: http://localhost:3000"
+echo "Backend: http://localhost:8080"
+echo "Database: localhost:5432"
+echo ""
+echo "To view logs:"
+echo "  Backend: tail -f logs/backend.log"
+echo "  Frontend: tail -f logs/frontend.log"
+echo ""
+echo "To stop: ./scripts/dev-down.sh"

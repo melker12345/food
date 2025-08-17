@@ -1,15 +1,64 @@
-version: '3.9'
+version: '3.8'
+
 services:
-  mongo:
-    image: mongo:7
-    container_name: food-mongo
-    ports:
-      - "27017:27017"
-    volumes:
-      - mongo_data:/data/db
+  # PostgreSQL Database
+  database:
+    image: postgres:15-alpine
+    container_name: food_app_db
     environment:
-      - MONGO_INITDB_DATABASE=food
+      POSTGRES_DB: food_app
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - food_network
+
+  # Go Backend API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: food_app_backend
+    environment:
+      DB_HOST: database
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: password
+      DB_NAME: food_app
+      DB_SSLMODE: disable
+      JWT_SECRET: your-super-secret-jwt-key-change-in-production
+    ports:
+      - "8080:8080"
+    depends_on:
+      - database
+    volumes:
+      - ./backend:/app
+    networks:
+      - food_network
+
+  # React Frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: food_app_frontend
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    networks:
+      - food_network
+
 volumes:
-  mongo_data:
+  postgres_data:
 
-
+networks:
+  food_network:
+    driver: bridge
