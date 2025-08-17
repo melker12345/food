@@ -52,6 +52,9 @@ func GetMeals(c *gin.Context) {
 	// Pagination
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
+	if limit <= 0 {
+		limit = 20
+	}
 	offset := (page - 1) * limit
 
 	query = query.Offset(offset).Limit(limit)
@@ -84,7 +87,7 @@ func GetPersonalizedMeals(c *gin.Context) {
 	userID := c.GetUint("userID")
 	
 	var user models.User
-	if database.DB.First(&user, userID).RecordNotFound() {
+	if database.DB.Where("id = ?", userID).First(&user).RecordNotFound() {
 		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
 		return
 	}

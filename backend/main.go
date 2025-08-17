@@ -5,10 +5,20 @@ import (
 	"food-app/handlers"
 	"food-app/middleware"
 	"log"
+	"os"
+	"strings"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
+
+// getEnv gets environment variable with fallback default value
+func getEnv(key, defaultValue string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
+	return defaultValue
+}
 
 func main() {
 	// Initialize database
@@ -21,15 +31,15 @@ func main() {
 
 	// CORS configuration
 	config := cors.DefaultConfig()
-	config.AllowOrigins = []string{
-		"http://localhost:3000",
-		"http://localhost:3001",
-		"http://localhost:5173",
-		"http://localhost:5174",
-		"http://127.0.0.1:3000",
-		"http://127.0.0.1:3001",
-		"http://127.0.0.1:5173",
-		"http://127.0.0.1:5174",
+	corsOrigins := getEnv("CORS_ORIGINS", "http://localhost:3000,http://localhost:3001,http://localhost:5173,http://localhost:5174,http://127.0.0.1:3000,http://127.0.0.1:3001,http://127.0.0.1:5173,http://127.0.0.1:5174")
+	if corsOrigins == "*" {
+		config.AllowAllOrigins = true
+	} else {
+		origins := strings.Split(corsOrigins, ",")
+		for i, origin := range origins {
+			origins[i] = strings.TrimSpace(origin)
+		}
+		config.AllowOrigins = origins
 	}
 	config.AllowMethods = []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"}
 	config.AllowHeaders = []string{"Origin", "Content-Type", "Accept", "Authorization"}
@@ -74,8 +84,15 @@ func main() {
 		protected.POST("/meals/:id/dislike", handlers.DislikeMeal)
 		protected.POST("/meals/:id/reviews", handlers.AddMealReview)
 
-		// Meal planning
+		// Current Meal Plan (Single Plan Approach)
+		protected.GET("/current-meal-plan", handlers.GetCurrentMealPlan)
+		protected.POST("/current-meal-plan/populate-from-liked", handlers.PopulateFromLikedMeals)
+		protected.PUT("/current-meal-plan/meals", handlers.UpdateMealInPlan)
+		protected.PUT("/shopping-items/:item_id", handlers.ToggleShoppingItem)
+
+		// Legacy Meal planning (Multiple Plans)
 		protected.POST("/meal-plans", handlers.CreateMealPlan)
+		protected.POST("/meal-plans/auto-generate", handlers.AutoGenerateMealPlan)
 		protected.GET("/meal-plans", handlers.GetMealPlans)
 		protected.GET("/meal-plans/:id", handlers.GetMealPlan)
 		protected.PUT("/meal-plans/:id", handlers.UpdateMealPlan)

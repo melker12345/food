@@ -7,8 +7,10 @@ A comprehensive meal planning application that helps users discover, plan, and o
 ### 🍽️ Core Features
 - **Swipe-Based Meal Discovery**: Tinder-like interface for discovering new meals
 - **Personalized Recommendations**: AI-powered suggestions based on dietary preferences
-- **Weekly Meal Planning**: Drag-and-drop interface for planning weekly meals
-- **Automatic Shopping Lists**: Generate grocery lists from meal plans
+- **Weekly Meal Planning**: Single active meal plan automatically populated from liked meals
+- **Dynamic Shopping Lists**: Single shopping list that updates automatically when meals change
+- **Interactive Planning**: Visual weekly grid with drag-and-drop meal management
+- **Smart Auto-Population**: Meals intelligently distributed by type (breakfast, lunch, dinner)
 - **User Profiles & Preferences**: Customizable dietary restrictions and preferences
 
 ### 🎯 Advanced Features
@@ -104,11 +106,19 @@ POST   /api/v1/meals/:id/dislike     - Dislike a meal
 
 ### Meal Planning Endpoints
 ```
-GET    /api/v1/meal-plans           - Get user's meal plans
-POST   /api/v1/meal-plans           - Create new meal plan
-GET    /api/v1/meal-plans/:id       - Get specific meal plan
-PUT    /api/v1/meal-plans/:id       - Update meal plan
-DELETE /api/v1/meal-plans/:id       - Delete meal plan
+# Current Week Meal Plan (Primary Workflow)
+GET  /api/v1/current-meal-plan                    - Get user's current weekly meal plan
+POST /api/v1/current-meal-plan/populate-from-liked - Auto-populate from liked meals ✨
+PUT  /api/v1/current-meal-plan/meals              - Update specific meal in plan
+PUT  /api/v1/shopping-items/:item_id              - Toggle shopping item purchased status
+
+# Legacy Multiple Plans (Alternative)
+GET    /api/v1/meal-plans                - Get user's meal plans
+POST   /api/v1/meal-plans                - Create new meal plan
+POST   /api/v1/meal-plans/auto-generate  - Auto-generate meal plan from liked meals
+GET    /api/v1/meal-plans/:id            - Get specific meal plan
+PUT    /api/v1/meal-plans/:id            - Update meal plan
+DELETE /api/v1/meal-plans/:id            - Delete meal plan
 ```
 
 ### Shopping List Endpoints

@@ -8,6 +8,7 @@ import (
 	"food-app/models"
 
 	"github.com/gin-gonic/gin"
+	"math/rand"
 )
 
 type CreateMealPlanRequest struct {
@@ -21,6 +22,11 @@ type MealPlanEntryReq struct {
 	Day      string `json:"day" binding:"required"`
 	MealType string `json:"meal_type" binding:"required"`
 	Servings int    `json:"servings"`
+}
+
+type AutoGenerateMealPlanRequest struct {
+	Name      string `json:"name" binding:"required"`
+	WeekStart string `json:"week_start" binding:"required"`
 }
 
 func CreateMealPlan(c *gin.Context) {
@@ -68,6 +74,104 @@ func CreateMealPlan(c *gin.Context) {
 		}
 
 		database.DB.Create(&entry)
+	}
+
+	// Load the complete meal plan with relationships
+	database.DB.Preload("Meals").Preload("Meals.Meal").Preload("Meals.Meal.Ingredients").First(&mealPlan, mealPlan.ID)
+
+	c.JSON(http.StatusCreated, mealPlan)
+}
+
+func AutoGenerateMealPlan(c *gin.Context) {
+	userID := c.GetUint("userID")
+
+	var req AutoGenerateMealPlanRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Parse week start date
+	weekStart, err := time.Parse("2006-01-02", req.WeekStart)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid date format. Use YYYY-MM-DD"})
+		return
+	}
+
+	// Get user's liked meals
+	var interactions []models.UserMealInteraction
+	if err := database.DB.Preload("Meal").Preload("Meal.Ingredients").
+		Where("user_id = ? AND liked = true", userID).Find(&interactions).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch liked meals"})
+		return
+	}
+
+	if len(interactions) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "No liked meals found. Please like some meals first."})
+		return
+	}
+
+	// Separate meals by type
+	mealsByType := map[string][]models.Meal{
+		"breakfast": {},
+		"lunch":     {},
+		"dinner":    {},
+	}
+
+	for _, interaction := range interactions {
+		meal := interaction.Meal
+		if meal.MealType != "" {
+			mealsByType[meal.MealType] = append(mealsByType[meal.MealType], meal)
+		}
+	}
+
+	// If no specific meal types, use all meals for all types
+	allMeals := []models.Meal{}
+	for _, interaction := range interactions {
+		allMeals = append(allMeals, interaction.Meal)
+	}
+
+	// Create meal plan
+	mealPlan := models.MealPlan{
+		UserID:    userID,
+		Name:      req.Name,
+		WeekStart: weekStart,
+		IsActive:  true,
+	}
+
+	if err := database.DB.Create(&mealPlan).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create meal plan"})
+		return
+	}
+
+	// Generate meal entries for the week
+	days := []string{"monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"}
+	mealTypes := []string{"breakfast", "lunch", "dinner"}
+
+	for _, day := range days {
+		for _, mealType := range mealTypes {
+			// Choose meals for this meal type
+			availableMeals := mealsByType[mealType]
+			if len(availableMeals) == 0 {
+				// Fallback to all meals if no specific type available
+				availableMeals = allMeals
+			}
+
+			if len(availableMeals) > 0 {
+				// Randomly select a meal
+				selectedMeal := availableMeals[rand.Intn(len(availableMeals))]
+
+				entry := models.MealPlanEntry{
+					MealPlanID: mealPlan.ID,
+					MealID:     selectedMeal.ID,
+					Day:        day,
+					MealType:   mealType,
+					Servings:   1,
+				}
+
+				database.DB.Create(&entry)
+			}
+		}
 	}
 
 	// Load the complete meal plan with relationships

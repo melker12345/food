@@ -56,9 +56,9 @@ func Migrate() {
 		&models.MealReview{},
 		&models.MealPlan{},
 		&models.MealPlanEntry{},
+		&models.CurrentMealPlan{},
 		&models.ShoppingList{},
 		&models.ShoppingListItem{},
-		&models.PantryItem{},
 	)
 
 	log.Println("Database migration completed")
@@ -93,7 +93,10 @@ func SeedData() {
 	}
 
 	for _, ingredient := range ingredients {
-		DB.Create(&ingredient)
+		var existing models.Ingredient
+		if DB.Where("name = ?", ingredient.Name).First(&existing).RecordNotFound() {
+			DB.Create(&ingredient)
+		}
 	}
 
 	// Seed meals
@@ -118,8 +121,8 @@ func SeedData() {
 				Sugar:         3,
 				Sodium:        320,
 			},
-			DietaryTags: `["gluten-free","high-protein"]`,
-			Allergens:   `[]`,
+			DietaryTags: models.StringArray{"gluten-free", "high-protein"},
+			Allergens:   models.StringArray{},
 		},
 		{
 			Name:        "Quinoa Buddha Bowl",
@@ -141,8 +144,8 @@ func SeedData() {
 				Sugar:         8,
 				Sodium:        180,
 			},
-			DietaryTags: `["vegan","gluten-free","high-fiber"]`,
-			Allergens:   `[]`,
+			DietaryTags: models.StringArray{"vegan", "gluten-free", "high-fiber"},
+			Allergens:   models.StringArray{},
 		},
 		{
 			Name:        "Baked Salmon with Sweet Potato",
@@ -164,16 +167,76 @@ func SeedData() {
 				Sugar:         12,
 				Sodium:        280,
 			},
-			DietaryTags: `["gluten-free","omega-3","heart-healthy"]`,
-			Allergens:   `["fish"]`,
+			DietaryTags: models.StringArray{"gluten-free", "omega-3", "heart-healthy"},
+			Allergens:   models.StringArray{"fish"},
 		},
 	}
 
-	for _, meal := range meals {
-		DB.Create(&meal)
-	}
+			for _, meal := range meals {
+			var existing models.Meal
+			if DB.Where("name = ?", meal.Name).First(&existing).RecordNotFound() {
+				if err := DB.Create(&meal).Error; err != nil {
+					log.Printf("Error creating meal %s: %v", meal.Name, err)
+					continue
+				}
+
+				// Add meal ingredients with quantities
+				seedMealIngredients(meal.ID, meal.Name)
+			}
+		}
 
 	log.Println("Database seeded with initial data")
+}
+
+func seedMealIngredients(mealID uint, mealName string) {
+	// Define ingredient mappings for each meal
+	mealIngredientMappings := map[string][]struct {
+		name     string
+		quantity float64
+		unit     string
+	}{
+		"Grilled Chicken with Rice and Broccoli": {
+			{"Chicken Breast", 1, "lb"},
+			{"White Rice", 1, "cup"},
+			{"Broccoli", 1, "head"},
+			{"Olive Oil", 2, "tbsp"},
+		},
+		"Quinoa Buddha Bowl": {
+			{"Quinoa", 1, "cup"},
+			{"Sweet Potato", 1, "medium"},
+			{"Spinach", 2, "cups"},
+			{"Avocado", 1, "medium"},
+			{"Olive Oil", 1, "tbsp"},
+		},
+		"Salmon with Vegetables": {
+			{"Salmon Fillet", 6, "oz"},
+			{"Asparagus", 1, "bunch"},
+			{"Lemon", 1, "medium"},
+			{"Olive Oil", 1, "tbsp"},
+		},
+	}
+
+	ingredients, exists := mealIngredientMappings[mealName]
+	if !exists {
+		return // Skip if no mapping defined
+	}
+
+	for _, ing := range ingredients {
+		var ingredient models.Ingredient
+		if !DB.Where("name = ?", ing.name).First(&ingredient).RecordNotFound() {
+			// Create meal ingredient relationship
+			mealIngredient := models.MealIngredient{
+				MealID:       mealID,
+				IngredientID: ingredient.ID,
+				Quantity:     ing.quantity,
+				Unit:         ing.unit,
+			}
+			
+			if err := DB.Create(&mealIngredient).Error; err != nil {
+				log.Printf("Error creating meal ingredient for %s: %v", ing.name, err)
+			}
+		}
+	}
 }
 
 func getEnv(key, defaultValue string) string {

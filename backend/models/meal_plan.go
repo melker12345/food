@@ -18,6 +18,18 @@ type MealPlan struct {
 	User      User             `json:"user"`
 }
 
+// CurrentMealPlan represents the user's single active weekly meal plan
+type CurrentMealPlan struct {
+	ID                uint                  `json:"id" gorm:"primary_key"`
+	UserID            uint                  `json:"user_id" gorm:"unique"`
+	WeekStart         time.Time             `json:"week_start"`
+	Meals             []MealPlanEntry       `json:"meals"`
+	ShoppingList      *ShoppingList         `json:"shopping_list,omitempty"`
+	CreatedAt         time.Time             `json:"created_at"`
+	UpdatedAt         time.Time             `json:"updated_at"`
+	User              User                  `json:"user"`
+}
+
 type MealPlanEntry struct {
 	ID         uint      `json:"id" gorm:"primary_key"`
 	MealPlanID uint      `json:"meal_plan_id"`
@@ -51,23 +63,18 @@ type ShoppingListItem struct {
 	IsPurchased    bool      `json:"is_purchased" gorm:"default:false"`
 	Notes          string    `json:"notes"`
 	CreatedAt      time.Time `json:"created_at"`
+	UpdatedAt      time.Time `json:"updated_at"`
 	Ingredient     Ingredient `json:"ingredient"`
 }
 
-type PantryItem struct {
-	ID           uint      `json:"id" gorm:"primary_key"`
-	UserID       uint      `json:"user_id"`
+type MealIngredient struct {
+	MealID       uint      `json:"meal_id"`
 	IngredientID uint      `json:"ingredient_id"`
 	Quantity     float64   `json:"quantity"`
 	Unit         string    `json:"unit"`
-	ExpiryDate   *time.Time `json:"expiry_date"`
-	IsLow        bool      `json:"is_low" gorm:"default:false"`
-	CreatedAt    time.Time `json:"created_at"`
-	UpdatedAt    time.Time `json:"updated_at"`
-	User         User      `json:"user"`
 	Ingredient   Ingredient `json:"ingredient"`
 }
 
 func (mp *MealPlan) BeforeCreate(scope *gorm.Scope) error {
-	return scope.SetColumn("CreatedAt", time.Now())
+	return nil
 }

@@ -14,9 +14,9 @@ type User struct {
 	Password          string    `json:"-" gorm:"not null"`
 	FirstName         string    `json:"first_name"`
 	LastName          string    `json:"last_name"`
-	DietaryRestrictions string `json:"dietary_restrictions" gorm:"type:text"`
-	PreferredMealTypes  string `json:"preferred_meal_types" gorm:"type:text"`
-	Allergies           string `json:"allergies" gorm:"type:text"`
+	DietaryRestrictions StringArray `json:"dietary_restrictions" gorm:"type:text[]"`
+	PreferredMealTypes  StringArray `json:"preferred_meal_types" gorm:"type:text[]"`
+	Allergies           StringArray `json:"allergies" gorm:"type:text[]"`
 	CalorieGoal         int      `json:"calorie_goal"`
 	IsActive            bool     `json:"is_active" gorm:"default:true"`
 	CreatedAt           time.Time `json:"created_at"`
@@ -25,11 +25,11 @@ type User struct {
 }
 
 type UserPreferences struct {
-	UserID              uint     `json:"user_id"`
-	DietaryRestrictions []string `json:"dietary_restrictions"`
-	PreferredMealTypes  []string `json:"preferred_meal_types"`
-	Allergies           []string `json:"allergies"`
-	CalorieGoal         int      `json:"calorie_goal"`
+	UserID              uint        `json:"user_id"`
+	DietaryRestrictions StringArray `json:"dietary_restrictions"`
+	PreferredMealTypes  StringArray `json:"preferred_meal_types"`
+	Allergies           StringArray `json:"allergies"`
+	CalorieGoal         int         `json:"calorie_goal"`
 }
 
 func (u *User) HashPassword(password string) error {

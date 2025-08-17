@@ -1,9 +1,13 @@
 package models
 
 import (
+	"database/sql/driver"
+	"encoding/json"
+	"strings"
 	"time"
 
 	"github.com/jinzhu/gorm"
+	"github.com/lib/pq"
 )
 
 type Meal struct {
@@ -20,8 +24,8 @@ type Meal struct {
 	Instructions     string `json:"instructions" gorm:"type:text"`
 	Ingredients      []Ingredient   `json:"ingredients" gorm:"many2many:meal_ingredients;"`
 	NutritionInfo    NutritionInfo  `json:"nutrition_info" gorm:"embedded"`
-	DietaryTags      string `json:"dietary_tags" gorm:"type:text"` // vegan, vegetarian, gluten-free, etc.
-	Allergens        string `json:"allergens" gorm:"type:text"`
+	DietaryTags      StringArray `json:"dietary_tags" gorm:"type:text[]"`
+	Allergens        StringArray `json:"allergens" gorm:"type:text[]"`
 	LikesCount       int            `json:"likes_count" gorm:"default:0"`
 	CreatedAt        time.Time      `json:"created_at"`
 	UpdatedAt        time.Time      `json:"updated_at"`
@@ -78,6 +82,66 @@ type MealReview struct {
 	UpdatedAt time.Time `json:"updated_at"`
 	User      User      `json:"user"`
 	Meal      Meal      `json:"meal"`
+}
+
+// StringArray is a custom type for PostgreSQL string arrays
+type StringArray []string
+
+// Value implements the driver.Valuer interface for database storage
+func (sa StringArray) Value() (driver.Value, error) {
+	if len(sa) == 0 {
+		return "{}", nil
+	}
+	return pq.Array(sa).Value()
+}
+
+// Scan implements the sql.Scanner interface for database retrieval
+func (sa *StringArray) Scan(value interface{}) error {
+	if value == nil {
+		*sa = StringArray{}
+		return nil
+	}
+
+	switch v := value.(type) {
+	case string:
+		// Handle JSON string format for backward compatibility
+		if strings.HasPrefix(v, "[") && strings.HasSuffix(v, "]") {
+			var arr []string
+			if err := json.Unmarshal([]byte(v), &arr); err == nil {
+				*sa = StringArray(arr)
+				return nil
+			}
+		}
+		// Handle PostgreSQL array format
+		return pq.Array(sa).Scan(value)
+	case []byte:
+		// Handle JSON byte format
+		if len(v) > 0 && v[0] == '[' {
+			var arr []string
+			if err := json.Unmarshal(v, &arr); err == nil {
+				*sa = StringArray(arr)
+				return nil
+			}
+		}
+		return pq.Array(sa).Scan(value)
+	default:
+		return pq.Array(sa).Scan(value)
+	}
+}
+
+// MarshalJSON implements json.Marshaler
+func (sa StringArray) MarshalJSON() ([]byte, error) {
+	return json.Marshal([]string(sa))
+}
+
+// UnmarshalJSON implements json.Unmarshaler
+func (sa *StringArray) UnmarshalJSON(data []byte) error {
+	var arr []string
+	if err := json.Unmarshal(data, &arr); err != nil {
+		return err
+	}
+	*sa = StringArray(arr)
+	return nil
 }
 
 func (m *Meal) BeforeCreate(scope *gorm.Scope) error {
